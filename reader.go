@@ -12,13 +12,15 @@ import (
 )
 
 type room = string
-type controllerMem = map[string]interface{}
+type controllerName = string
+type controllerMem = map[controllerName]map[string]interface{}
 
 type memory struct {
 	Reports reports `json:"reports"`
 }
 
 type reports struct {
+	Time   time.Time              `json:"time"`
 	Global map[string]interface{} `json:"global"`
 	Rooms  map[room]controllerMem `json:"rooms"`
 }
