@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/influxdata/influxdb-client-go/v2"
@@ -23,22 +24,23 @@ func initInfluxClient(url, token string) (influxdb2.Client, error) {
 	return client, nil
 }
 
-func reportsIntoPoints(reports reports, shard string) ([]*write.Point, error) {
+func reportsIntoPoints(reports *reports, shard string) ([]*write.Point, error) {
 	var points []*write.Point
 
 	// TODO add time to report
 	time := reports.Time
-	if len(reports.Global) > 0 {
+	for k, v := range reports.Global {
 		points = append(points, influxdb2.NewPoint(
-			"globals",
+			k,
 			map[string]string{"shard": shard},
-			reports.Global,
+			v.(map[string]interface{}),
 			time,
 		))
+		fmt.Println(k, v)
 	}
 
-	for room, controllerMem := range reports.Rooms {
-		for controllerName, mem := range controllerMem {
+	for controllerName, controllerMem := range reports.Controllers {
+		for room, mem := range controllerMem {
 			tags := map[string]string{
 				"shard": shard,
 				"room":  room,

@@ -27,13 +27,13 @@ func main() {
 	client = c
 
 	log.Printf("Reading memory from shard: %s\n", shard)
-	memory, err := getMemory(token, shard)
+	reports, err := getMemory(token, shard)
 	if err != nil {
 		panic(err)
 	}
 	log.Printf("Got memory from shard: %s\n", shard)
 
-	points, err := reportsIntoPoints(memory.Reports, shard)
+	points, err := reportsIntoPoints(reports, shard)
 
 	writeToInflux(points, client, influxOrg, influxBucket)
 	log.Printf("Written %d points from shard %s\n", len(points), shard)

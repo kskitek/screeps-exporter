@@ -13,19 +13,19 @@ import (
 
 type room = string
 type controllerName = string
-type controllerMem = map[controllerName]map[string]interface{}
+type controllerMem = map[room]map[string]interface{}
 
 type memory struct {
-	Reports reports `json:"reports"`
+	Reports map[string]interface{} `json:"reports"`
 }
 
 type reports struct {
-	Time   time.Time              `json:"time"`
-	Global map[string]interface{} `json:"global"`
-	Rooms  map[room]controllerMem `json:"rooms"`
+	Time        time.Time
+	Global      map[string]interface{}
+	Controllers map[controllerName]controllerMem
 }
 
-func getMemory(token, shard string) (*memory, error) {
+func getMemory(token, shard string) (*reports, error) {
 	client := http.Client{
 		Timeout: 10 * time.Second,
 	}
@@ -48,7 +48,7 @@ func getMemory(token, shard string) (*memory, error) {
 	return readBody(resp.Body)
 }
 
-func readBody(r io.Reader) (*memory, error) {
+func readBody(r io.Reader) (*reports, error) {
 	var body response
 	err := json.NewDecoder(r).Decode(&body)
 	if err != nil {
@@ -74,22 +74,45 @@ func readBody(r io.Reader) (*memory, error) {
 		return nil, fmt.Errorf("unable to read gziped data: %w", err)
 	}
 
-	mem := newMemory()
+	var mem memory
 	err = json.Unmarshal(b, &mem)
 	if err != nil {
 		return nil, fmt.Errorf("unable to read json memory: %w", err)
 	}
 
-	return &mem, nil
+	return memoryToReports(mem)
 }
 
-func newMemory() memory {
-	return memory{
-		Reports: reports{
-			Global: make(map[string]interface{}),
-			Rooms:  make(map[room]controllerMem),
-		},
+func memoryToReports(mem memory) (*reports, error) {
+	// TODO think about better reports structure.. this is really nasty...
+	reports := &reports{}
+
+	if timeString, ok := mem.Reports["time"].(string); ok {
+		t, err := time.Parse(time.RFC3339, timeString)
+		if err != nil {
+			return nil, err
+		}
+		reports.Time = t
 	}
+	if global, ok := mem.Reports["global"]; ok {
+		reports.Global = global.(map[string]interface{})
+	}
+
+	reports.Controllers = make(map[controllerName]controllerMem)
+	for controller, v := range mem.Reports {
+		if controller == "time" || controller == "global" {
+			continue
+		}
+
+		for room, mem := range v.(map[string]interface{}) {
+			if reports.Controllers[controller] == nil {
+				reports.Controllers[controller] = make(controllerMem)
+			}
+			reports.Controllers[controller][room] = mem.(map[string]interface{})
+		}
+	}
+
+	return reports, nil
 }
 
 type response struct {
